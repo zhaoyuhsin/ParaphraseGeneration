@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch import optim
 from torch.autograd import Variable
 from model.Lang import EncoderRNN, AttnDecoderRNN
+from model.util import variable_from_sentence
 import random
 class CopyNet(nn.Module):
     def __init__(self, input_size, output_size, hidden_size, attn_model, n_layers = 1, dropout_p = 0.1, learning_rate = 0.0001, USE_CUDA = False):
@@ -79,3 +80,24 @@ class CopyNet(nn.Module):
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
         return loss.data / target_length
+    def predict(self, language, sentence):
+        input_variable = variable_from_sentence(language, sentence, self.USE_CUDA)
+        encoder_hidden = self.encoder.init_hidden()
+        encoder_outputs, encooder_hidden = self.encoder(input_variable, encoder_hidden)
+        decoder_input = Variable(torch.LongTensor([[self.SOS_token]]))
+        decoder_context = Variable(torch.zeros(1, self.decoder.hidden_size))
+        decoder_hidden = encoder_hidden
+        if self.USE_CUDA:
+            decoder_input = decoder_input.cuda()
+            decoder_context = decoder_context.cuda()
+        di = 0
+        result = []
+        while(True):
+            decoder_output, decoder_context, decoder_hidden, decoder_attention = self.decoder(decoder_input, decoder_context, decoder_hidden, encoder_outputs)
+            topv, topi = decoder_output.data.topk(1)
+            ni = topi[0][0]
+            result.append(ni)
+            decoder_input = Variable(torch.LongTensor([[ni]]))
+            if self.USE_CUDA: decoder_input = decoder_input.cuda()
+            if ni == self.EOS_token: break
+        return result

@@ -46,56 +46,43 @@ def normalize_string(s):
     s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
     return s
 
-
-def read_langs(lang1, lang2, reverse=False):
+def add_database(language, filename):
+    sentences = open(filename).read().split('\n')
+    for sentence in sentences:
+        language.index_words(sentence)
+def read_langs(file_name1, file_name2):
     print("Reading lines...")
 
-    # Read the file and split into lines
-    lines = open('data/%s-%s.txt' % (lang1, lang2)).read().strip().split('\n')
+    input_sentences = open(file_name1).read().split('\n')
+    output_sentences = open(file_name2).read().split('\n')
+    pairs = [[input_sentences[i], output_sentences[i]]for i in range(len(input_sentences))]
+    print('len_pairs ', len(pairs))
+    print(pairs[2])
+    language = Lang('Language')
+    return language, pairs
 
-    # Split every line into pairs and normalize
-    pairs = [[normalize_string(s) for s in l.split('\t')] for l in lines]
-
-    # Reverse pairs, make Lang instances
-    if reverse:
-        pairs = [list(reversed(p)) for p in pairs]
-        input_lang = Lang(lang2)
-        output_lang = Lang(lang1)
-    else:
-        input_lang = Lang(lang1)
-        output_lang = Lang(lang2)
-
-    return input_lang, output_lang, pairs
-MAX_LENGTH = 10
-
-good_prefixes = (
-    "i am ", "i m ",
-    "he is", "he s ",
-    "she is", "she s",
-    "you are", "you re "
-)
+MAX_LENGTH = 20
 
 def filter_pair(p):
-    return len(p[0].split(' ')) < MAX_LENGTH and len(p[1].split(' ')) < MAX_LENGTH and \
-        p[1].startswith(good_prefixes)
+    # not use !!!!!!!!!!!
+    return len(p[0].split(' ')) < MAX_LENGTH and len(p[1].split(' ')) < MAX_LENGTH
 
 def filter_pairs(pairs):
     return [pair for pair in pairs if filter_pair(pair)]
 
 
-def prepare_data(lang1_name, lang2_name, reverse=False):
-    input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, reverse)
+def prepare_data(file_name1, file_name2):
+    language, pairs = read_langs(file_name1, file_name2)
     print("Read %s sentence pairs" % len(pairs))
 
-    pairs = filter_pairs(pairs)
-    print("Trimmed to %s sentence pairs" % len(pairs))
 
     print("Indexing words...")
+    print('len = ', len(pairs))
     for pair in pairs:
-        input_lang.index_words(pair[0])
-        output_lang.index_words(pair[1])
+        language.index_words(pair[0])
+        language.index_words(pair[1])
 
-    return input_lang, output_lang, pairs
+    return language, pairs
 
 
 

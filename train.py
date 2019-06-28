@@ -4,25 +4,11 @@ import time
 import torch
 from torch.autograd import Variable
 from model.CopyNet import CopyNet
-from model.Lang import prepare_data, time_since
+from model.Lang import prepare_data, time_since, add_database
+from model.util import variables_from_pair
 
 
 
-def indexes_from_sentence(lang, sentence):
-    return [lang.word2index[word] for word in sentence.split(' ')]
-
-def variable_from_sentence(lang, sentence):
-    indexes = indexes_from_sentence(lang, sentence)
-    indexes.append(EOS_token)
-    var = Variable(torch.LongTensor(indexes).view(-1, 1))
-#     print('var =', var)
-    if USE_CUDA: var = var.cuda()
-    return var
-
-def variables_from_pair(pair):
-    input_variable = variable_from_sentence(input_lang, pair[0])
-    target_variable = variable_from_sentence(output_lang, pair[1])
-    return (input_variable, target_variable)
 
 
 attn_model = 'general'
@@ -34,13 +20,23 @@ USE_CUDA = False
 n_epochs = 50000
 plot_every = 200
 print_every = 100
-sava_every = 10000
+sava_every = 100
 
 SOS_token = 0
 EOS_token = 1
+language, pairs = prepare_data('data/train_src.txt', 'data/train_tgt.txt')
+#add_database(language, 'data/valid_src.txt')
+#add_database(language, 'data/valid_tgt.txt')
+#add_database(language, 'data/test_src.txt')
+#add_database(language, 'data/test_tgt.txt')
+print(language.n_words)
 
-input_lang, output_lang, pairs = prepare_data('eng', 'fra', True)
-model = CopyNet(input_lang.n_words, output_lang.n_words, hidden_size, attn_model, n_layers, USE_CUDA = USE_CUDA)
+print('--------------------------------------------------------------------')
+
+
+
+model = CopyNet(language.n_words, language.n_words, hidden_size, attn_model, n_layers, USE_CUDA = USE_CUDA)
+#model.load_state_dict(torch.load('save_model/model_300.pt'))
 if USE_CUDA:
     model = model.cuda()
 # Keep track of time elapsed and running averages
@@ -52,7 +48,7 @@ plot_loss_total = 0 # Reset every plot_every
 for epoch in range(1, n_epochs + 1):
     # Get training data for this cycle
     print(epoch)
-    training_pair = variables_from_pair(random.choice(pairs))
+    training_pair = variables_from_pair(language, random.choice(pairs), USE_CUDA)
     input_variable = training_pair[0]
     target_variable = training_pair[1]
 
@@ -76,3 +72,6 @@ for epoch in range(1, n_epochs + 1):
         plot_loss_avg = plot_loss_total / plot_every
         plot_losses.append(plot_loss_avg)
         plot_loss_total = 0
+    if epoch % sava_every == 0:
+        save_path = 'save_model/model_' + str(epoch) + '.pt'
+        torch.save(model.state_dict(), save_path)
